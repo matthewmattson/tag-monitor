@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Page view sent twice</title>
+  <!-- Google Tag Manager -->
+  <script async src="https://www.googletagmanager.com/gtm.js?id=GTM-PJ4VGDKV"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+  </script>
+  <!-- End Google Tag Manager -->
+  <!-- A second, hardcoded GA4 install on top of the one GTM already manages -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-BXK45KNNB1"></script>
+  <script>
+    gtag('config', 'G-BXK45KNNB1');
+    gtag('event', 'page_view');
+  </script>
+</head>
+<body>
+  <h1>Page view sent twice</h1>
+  <p>GA4 is installed through GTM and again by hand, so page views are double counted.</p>
+</body>
+</html>

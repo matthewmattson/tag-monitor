@@ -1,0 +1,14 @@
+{
+  "name": "tag-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scheduled Playwright checks that catch missing or misfiring analytics tags",
+  "scripts": {
+    "monitor": "playwright test",
+    "monitor:demo": "TARGET=demo playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1"
+  }
+}
