@@ -79,9 +79,15 @@ for (const spec of target.pages) {
       ).toEqual([]);
 
       const pageView = capture.ga4Events.find((event) => event.name === 'page_view');
-      expect(pageView?.documentLocation, 'page_view did not report the URL of this page').toBe(
-        capture.url,
-      );
+      // Compare host and path only: GA4 drops the port from the URL it reports.
+      const hostAndPath = (value: string) => {
+        const url = new URL(value);
+        return url.hostname + url.pathname;
+      };
+      expect(
+        pageView?.documentLocation ? hostAndPath(pageView.documentLocation) : null,
+        'page_view did not report the URL of this page',
+      ).toBe(hostAndPath(capture.url));
     });
 
     test('dataLayer exists and GTM lifecycle events fire', () => {
