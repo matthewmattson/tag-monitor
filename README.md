@@ -2,7 +2,7 @@
 
 [![Tag monitor](https://github.com/matthewmattson/tag-monitor/actions/workflows/tag-monitor.yml/badge.svg)](https://github.com/matthewmattson/tag-monitor/actions/workflows/tag-monitor.yml)
 
-A scheduled check that loads every page of a website in a real browser and verifies that its analytics tags fire correctly. If something breaks, it opens a GitHub issue that says which page and which check.
+A scheduled check that loads every page of a website in real desktop and mobile browsers and verifies that its analytics tags fire correctly. If something breaks, it opens a GitHub issue that says which page and which check.
 
 Analytics tags usually fail silently. A template gets rebuilt and the snippet is dropped, a second install double counts page views, a container ID is pasted from the wrong site. Nothing errors, and the first sign is a report that looks wrong weeks later. This monitor turns those into a failing check on its next run.
 
@@ -10,7 +10,7 @@ Nothing about a particular site is in the code. Each site is one JSON file, and 
 
 ## What it checks
 
-For each page, [Playwright](https://playwright.dev) opens the page in headless Chromium, records every network request, and asserts:
+For each page, in each browser, [Playwright](https://playwright.dev) opens the page, records every network request, and asserts:
 
 | Check | Catches |
 | --- | --- |
@@ -35,6 +35,7 @@ A site is described by one JSON file:
     "gtmContainerId": "GTM-XXXXXXX",
     "ga4MeasurementId": "G-XXXXXXXXXX"
   },
+  "browsers": ["desktop-chrome", "mobile-safari"],
   "allowedThirdPartyHosts": ["fonts.googleapis.com", "fonts.gstatic.com"],
   "pages": [
     { "name": "Home", "path": "/" },
@@ -49,10 +50,25 @@ A site is described by one JSON file:
 | `expected.gtmContainerId` | The GTM container every page must load |
 | `expected.ga4MeasurementId` | The GA4 property every hit must go to |
 | `expected.klaviyoCompanyId` | Optional. The Klaviyo account, checked on pages with `"klaviyo": true` |
+| `browsers` | Optional. Which [browser profiles](#browsers-and-devices) to check. Leave it out to check all five |
 | `allowedThirdPartyHosts` | Hosts a page may load from. The site itself and Google's tag hosts are always allowed |
 | `pages` | The pages to check, each with a display `name` and a `path` |
 
 None of these values are secret: the IDs are already in the HTML of any page that uses them. A starting point is in [`examples/site.json`](examples/site.json).
+
+### Browsers and devices
+
+| Name | What it runs |
+| --- | --- |
+| `desktop-chrome` | Chromium at a desktop size. Also stands in for Edge, Brave and Opera, which use the same engine |
+| `desktop-firefox` | Firefox at a desktop size |
+| `desktop-safari` | WebKit, Safari's engine, at a desktop size |
+| `mobile-chrome` | Chromium emulating a Pixel 7: phone viewport, touch and Android user agent |
+| `mobile-safari` | WebKit emulating an iPhone 15: phone viewport, touch and iOS user agent |
+
+Every check runs for every page in every profile listed, so each profile adds to the run time. A site that serves the same markup to all devices can list fewer. The profiles are defined in [`browser-profiles.json`](browser-profiles.json); add an entry there, using any of [Playwright's device names](https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/server/deviceDescriptorsSource.json), to check a tablet or another phone.
+
+The mobile profiles are emulation, not physical devices, and none of the profiles apply Safari's or Firefox's tracking protection or an ad blocker. The monitor tells you whether your tags are installed and firing correctly, not how much data real visitors' privacy settings remove.
 
 There are two ways to run it.
 
@@ -139,7 +155,7 @@ If the site takes time to deploy after a push, the checks may run against the pr
 
 ### What a run produces
 
-- **A summary table** on the run page for each site, one row per page.
+- **A summary table** on the run page for each site, one row per page and one column per browser.
 - **The full Playwright HTML report** as a downloadable artifact.
 - **A GitHub issue** per site when a check fails. A failure that persists adds a comment to the open issue instead of opening another, and the issue closes itself on the next passing run.
 
@@ -163,7 +179,7 @@ The demo is its own workflow with its own config, [`examples/demo.json`](example
 - **It tests the deployed site, not the source.** The monitor only needs a URL, so it works the same for a site whose code you don't control.
 - **Site settings are data, not code.** Adding a site means adding a JSON file. The tests never change.
 - **One retry on the live site.** A single network blip shouldn't open an issue. A check has to fail twice in a row to count.
-- **Each page is loaded once.** One browser session per page captures everything, and the individual checks read from that capture. That keeps the report granular without loading every page nine times.
+- **Each page is loaded once per browser.** One session captures everything, and the individual checks read from that capture. That keeps the report granular without loading every page nine times.
 
 ## Running it locally
 
