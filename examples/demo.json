@@ -1,0 +1,15 @@
+{
+  "baseURL": "http://localhost:4173",
+  "serveFixtures": true,
+  "expected": {
+    "gtmContainerId": "GTM-PJ4VGDKV",
+    "ga4MeasurementId": "G-BXK45KNNB1"
+  },
+  "pages": [
+    { "name": "Healthy page", "path": "/healthy.html" },
+    { "name": "Tag removed", "path": "/missing-tag.html" },
+    { "name": "Wrong container ID", "path": "/wrong-container.html" },
+    { "name": "Page view sent twice", "path": "/duplicate-page-view.html" },
+    { "name": "Unapproved third-party script", "path": "/rogue-script.html" }
+  ]
+}

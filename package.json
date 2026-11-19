@@ -5,7 +5,7 @@
   "description": "Scheduled Playwright checks that catch missing or misfiring analytics tags",
   "scripts": {
     "monitor": "playwright test",
-    "monitor:demo": "TARGET=demo playwright test",
+    "monitor:demo": "SITE_CONFIG=examples/demo.json playwright test",
     "report": "playwright show-report"
   },
   "devDependencies": {

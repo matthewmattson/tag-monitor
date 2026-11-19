@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { allowedThirdPartyHosts, expected, target } from '../monitor.config';
+import { allowedThirdPartyHosts, expected, site } from '../site-config';
 import { capturePage, type Capture } from './capture';
 
-const siteHost = new URL(target.baseURL).hostname;
+const siteHost = new URL(site.baseURL).hostname;
 
 function hostIsAllowed(host: string): boolean {
   if (host === siteHost) return true;
@@ -25,12 +25,12 @@ function googleTagRequests(capture: Capture) {
     }));
 }
 
-for (const spec of target.pages) {
+for (const spec of site.pages) {
   test.describe(spec.name, () => {
     let capture: Capture;
 
     test.beforeAll(async ({ browser }) => {
-      capture = await capturePage(browser, new URL(spec.path, target.baseURL).href);
+      capture = await capturePage(browser, new URL(spec.path, site.baseURL).href);
     });
 
     test('page loads', () => {
@@ -114,7 +114,7 @@ for (const spec of target.pages) {
       ).toEqual([]);
     });
 
-    if (spec.klaviyo) {
+    if (spec.klaviyo && expected.klaviyoCompanyId) {
       test('Klaviyo onsite script loads for the right account', () => {
         const klaviyo = capture.requests.filter((request) => {
           const url = new URL(request.url);

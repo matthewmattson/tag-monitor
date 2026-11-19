@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
-import { targetName } from './monitor.config';
+import { site } from './site-config';
 
-const isDemo = targetName === 'demo';
+const isDemo = Boolean(site.serveFixtures);
 
 export default defineConfig({
   testDir: './tests',
@@ -14,7 +14,7 @@ export default defineConfig({
     ['html', { open: 'never' }],
     ['./reporters/summary-reporter.ts'],
   ],
-  // The demo target is a set of deliberately broken pages served locally.
+  // The demo config checks deliberately broken pages served from ./fixtures.
   webServer: isDemo
     ? {
         command: 'node scripts/serve-fixtures.mjs',

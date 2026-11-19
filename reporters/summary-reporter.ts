@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import type { FullConfig, Reporter, Suite, TestCase } from '@playwright/test/reporter';
-import { target, targetName } from '../monitor.config';
+import { site, siteName } from '../site-config';
 
 const ANSI = /\u001b\[[0-9;]*m/g;
 
@@ -28,9 +28,9 @@ export default class SummaryReporter implements Reporter {
     const failures = allTests.filter(failed);
 
     const lines: string[] = [];
-    lines.push(`## Tag monitor: ${failures.length === 0 ? 'all checks passed' : `${failures.length} check(s) failed`}`);
+    lines.push(`## Tag monitor, ${siteName}: ${failures.length === 0 ? 'all checks passed' : `${failures.length} check(s) failed`}`);
     lines.push('');
-    lines.push(`Target: \`${targetName}\` (${target.baseURL}), ${allTests.length} checks across ${byPage.size} pages.`);
+    lines.push(`Site: \`${siteName}\` (${site.baseURL}), ${allTests.length} checks across ${byPage.size} pages.`);
     lines.push('');
     lines.push('| Page | Result | Failed checks |');
     lines.push('| --- | --- | --- |');

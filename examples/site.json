@@ -1,0 +1,13 @@
+{
+  "baseURL": "https://www.example.com",
+  "expected": {
+    "gtmContainerId": "GTM-XXXXXXX",
+    "ga4MeasurementId": "G-XXXXXXXXXX"
+  },
+  "allowedThirdPartyHosts": ["fonts.googleapis.com", "fonts.gstatic.com"],
+  "pages": [
+    { "name": "Home", "path": "/" },
+    { "name": "Pricing", "path": "/pricing" },
+    { "name": "Contact", "path": "/contact" }
+  ]
+}
