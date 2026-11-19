@@ -15,6 +15,37 @@ export type PageSpec = {
   klaviyo?: boolean;
 };
 
+/** One thing the monitor does on the page, like a visitor would. */
+export type FlowStep = {
+  action: 'fill' | 'type' | 'select' | 'check' | 'click';
+  /** CSS selector of the element to act on. */
+  selector: string;
+  /** Text to enter, or the option to choose. Not used by check and click. */
+  value?: string;
+};
+
+/** A form or other conversion point to walk through and verify. */
+export type Conversion = {
+  name: string;
+  /** Page the conversion starts on, relative to baseURL. */
+  path: string;
+  steps: FlowStep[];
+  /**
+   * Requests to answer locally with a fake success instead of really sending
+   * them, so the monitor never creates a real signup or order. Any other
+   * outgoing write during the flow is stopped.
+   */
+  intercept?: { url: string; status?: number; body?: string }[];
+  expect?: {
+    /** Intercepted requests that must be sent exactly once. */
+    requests?: { url: string; method?: string; bodyContains?: string[] }[];
+    /** CSS selector of the confirmation that must appear. */
+    visible?: string;
+    /** GA4 events that must be sent exactly once, to the expected property. */
+    ga4Events?: { name: string; params?: Record<string, string> }[];
+  };
+};
+
 export type SiteConfig = {
   baseURL: string;
   /** The IDs every page is expected to use. Anything else is flagged. */
@@ -29,6 +60,8 @@ export type SiteConfig = {
    */
   allowedThirdPartyHosts?: string[];
   pages: PageSpec[];
+  /** Forms and other conversion points to walk through. */
+  conversions?: Conversion[];
   /**
    * Which browser profiles to check, by name from browser-profiles.json.
    * Leave it out to check all of them.

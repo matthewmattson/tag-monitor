@@ -5,14 +5,113 @@
     "ga4MeasurementId": "G-BXK45KNNB1",
     "klaviyoCompanyId": "UDhRu7"
   },
-  "browsers": ["desktop-chrome", "desktop-firefox", "desktop-safari", "mobile-chrome", "mobile-safari"],
-  "allowedThirdPartyHosts": ["klaviyo.com", "fonts.googleapis.com", "fonts.gstatic.com"],
+  "browsers": [
+    "desktop-chrome",
+    "desktop-firefox",
+    "desktop-safari",
+    "mobile-chrome",
+    "mobile-safari"
+  ],
+  "allowedThirdPartyHosts": [
+    "klaviyo.com",
+    "fonts.googleapis.com",
+    "fonts.gstatic.com"
+  ],
   "pages": [
-    { "name": "Home", "path": "/", "klaviyo": true },
-    { "name": "Research", "path": "/research.html" },
-    { "name": "Contact", "path": "/contact.html" },
-    { "name": "Privacy", "path": "/privacy.html" },
-    { "name": "Terms", "path": "/terms.html" },
-    { "name": "Mobile terms", "path": "/mobile-terms.html" }
+    {
+      "name": "Home",
+      "path": "/",
+      "klaviyo": true
+    },
+    {
+      "name": "Research",
+      "path": "/research.html"
+    },
+    {
+      "name": "Contact",
+      "path": "/contact.html"
+    },
+    {
+      "name": "Privacy",
+      "path": "/privacy.html"
+    },
+    {
+      "name": "Terms",
+      "path": "/terms.html"
+    },
+    {
+      "name": "Mobile terms",
+      "path": "/mobile-terms.html"
+    }
+  ],
+  "conversions": [
+    {
+      "name": "Waitlist signup",
+      "path": "/",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#first_name",
+          "value": "Tag Monitor"
+        },
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": "tag-monitor@example.com"
+        },
+        {
+          "action": "fill",
+          "selector": "#phone",
+          "value": "5555550100"
+        },
+        {
+          "action": "select",
+          "selector": "#phone_os",
+          "value": "iOS"
+        },
+        {
+          "action": "select",
+          "selector": "#wearable",
+          "value": "None"
+        },
+        {
+          "action": "select",
+          "selector": "#race_type",
+          "value": "Marathon"
+        },
+        {
+          "action": "check",
+          "selector": "#sms_consent"
+        },
+        {
+          "action": "click",
+          "selector": "#capture-form button[type=submit]"
+        }
+      ],
+      "intercept": [
+        {
+          "url": "://a.klaviyo.com/",
+          "status": 202
+        }
+      ],
+      "expect": {
+        "requests": [
+          {
+            "url": "a.klaviyo.com/client/subscriptions",
+            "method": "POST",
+            "bodyContains": [
+              "XDuNXY",
+              "tag-monitor@example.com"
+            ]
+          }
+        ],
+        "visible": "#thank-you",
+        "ga4Events": [
+          {
+            "name": "form_submit"
+          }
+        ]
+      }
+    }
   ]
 }

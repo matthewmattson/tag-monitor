@@ -1,10 +1,12 @@
-import type { Browser, BrowserContextOptions, Request } from '@playwright/test';
+import type { Browser, BrowserContext, BrowserContextOptions, Request } from '@playwright/test';
 
 /** One event inside a GA4 /g/collect hit. */
 export type Ga4Event = {
   name: string;
   measurementId: string | null;
   documentLocation: string | null;
+  /** Event parameters, e.g. { method: 'waitlist' } for ep.method=waitlist. */
+  params: Record<string, string>;
 };
 
 export type CapturedRequest = {
@@ -35,6 +37,15 @@ export function isGa4Collect(url: URL): boolean {
   return isAnalyticsHost && url.pathname.endsWith('/g/collect');
 }
 
+function eventParams(fields: URLSearchParams): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const [key, value] of fields) {
+    if (key.startsWith('ep.')) params[key.slice(3)] = value;
+    if (key.startsWith('epn.')) params[key.slice(4)] = value;
+  }
+  return params;
+}
+
 /**
  * A GA4 hit carries shared fields (measurement ID, page URL) in the query
  * string. A single event is in the query string too; batched events arrive
@@ -47,36 +58,25 @@ function parseGa4Hit(request: Request): Ga4Event[] {
     documentLocation: url.searchParams.get('dl'),
   };
 
-  const names: string[] = [];
+  const events: Ga4Event[] = [];
   const single = url.searchParams.get('en');
-  if (single) names.push(single);
+  if (single) events.push({ name: single, ...shared, params: eventParams(url.searchParams) });
 
   for (const line of (request.postData() || '').split('\n')) {
-    const batched = new URLSearchParams(line).get('en');
-    if (batched) names.push(batched);
+    const fields = new URLSearchParams(line);
+    const batched = fields.get('en');
+    if (batched) events.push({ name: batched, ...shared, params: eventParams(fields) });
   }
 
-  return names.map((name) => ({ name, ...shared }));
+  return events;
 }
 
 /**
- * Load one page in a clean browser context and record what its tags did.
- *
- * GA4 hits are recorded and then answered locally instead of being forwarded
- * to Google, so monitor runs never show up as traffic in the real reports.
+ * Record every GA4 hit sent from this browser context, and answer it locally
+ * instead of forwarding it to Google, so monitor runs never show up as
+ * traffic in the real reports.
  */
-export async function capturePage(
-  browser: Browser,
-  url: string,
-  contextOptions: BrowserContextOptions = {},
-): Promise<Capture> {
-  const context = await browser.newContext(contextOptions);
-  const page = await context.newPage();
-
-  const requests: CapturedRequest[] = [];
-  const ga4Events: Ga4Event[] = [];
-  const tagErrors: string[] = [];
-
+export async function interceptGa4(context: BrowserContext, ga4Events: Ga4Event[]) {
   await context.route(
     (routeUrl) => isGa4Collect(routeUrl),
     async (route) => {
@@ -92,6 +92,24 @@ export async function capturePage(
       });
     },
   );
+}
+
+/**
+ * Load one page in a clean browser context and record what its tags did.
+ */
+export async function capturePage(
+  browser: Browser,
+  url: string,
+  contextOptions: BrowserContextOptions = {},
+): Promise<Capture> {
+  const context = await browser.newContext(contextOptions);
+  const page = await context.newPage();
+
+  const requests: CapturedRequest[] = [];
+  const ga4Events: Ga4Event[] = [];
+  const tagErrors: string[] = [];
+
+  await interceptGa4(context, ga4Events);
 
   page.on('request', (request) => {
     const entry: CapturedRequest = { url: request.url(), status: null };

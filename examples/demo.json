@@ -1,16 +1,128 @@
 {
   "baseURL": "http://localhost:4173",
   "serveFixtures": true,
-  "browsers": ["desktop-chrome", "mobile-safari"],
+  "browsers": [
+    "desktop-chrome",
+    "mobile-safari"
+  ],
   "expected": {
     "gtmContainerId": "GTM-PJ4VGDKV",
     "ga4MeasurementId": "G-BXK45KNNB1"
   },
   "pages": [
-    { "name": "Healthy page", "path": "/healthy.html" },
-    { "name": "Tag removed", "path": "/missing-tag.html" },
-    { "name": "Wrong container ID", "path": "/wrong-container.html" },
-    { "name": "Page view sent twice", "path": "/duplicate-page-view.html" },
-    { "name": "Unapproved third-party script", "path": "/rogue-script.html" }
+    {
+      "name": "Healthy page",
+      "path": "/healthy.html"
+    },
+    {
+      "name": "Tag removed",
+      "path": "/missing-tag.html"
+    },
+    {
+      "name": "Wrong container ID",
+      "path": "/wrong-container.html"
+    },
+    {
+      "name": "Page view sent twice",
+      "path": "/duplicate-page-view.html"
+    },
+    {
+      "name": "Unapproved third-party script",
+      "path": "/rogue-script.html"
+    }
+  ],
+  "conversions": [
+    {
+      "name": "Signup form",
+      "path": "/signup-form.html",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#name",
+          "value": "Tag Monitor"
+        },
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": "tag-monitor@example.com"
+        },
+        {
+          "action": "click",
+          "selector": "#signup button[type=submit]"
+        }
+      ],
+      "intercept": [
+        {
+          "url": "/api/signup",
+          "status": 200
+        }
+      ],
+      "expect": {
+        "requests": [
+          {
+            "url": "/api/signup",
+            "method": "POST",
+            "bodyContains": [
+              "tag-monitor@example.com"
+            ]
+          }
+        ],
+        "visible": "#thanks",
+        "ga4Events": [
+          {
+            "name": "generate_lead",
+            "params": {
+              "method": "waitlist"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Signup form, conversion event removed",
+      "path": "/signup-form-broken.html",
+      "steps": [
+        {
+          "action": "fill",
+          "selector": "#name",
+          "value": "Tag Monitor"
+        },
+        {
+          "action": "fill",
+          "selector": "#email",
+          "value": "tag-monitor@example.com"
+        },
+        {
+          "action": "click",
+          "selector": "#signup button[type=submit]"
+        }
+      ],
+      "intercept": [
+        {
+          "url": "/api/signup",
+          "status": 200
+        }
+      ],
+      "expect": {
+        "requests": [
+          {
+            "url": "/api/signup",
+            "method": "POST",
+            "bodyContains": [
+              "tag-monitor@example.com"
+            ]
+          }
+        ],
+        "visible": "#thanks",
+        "ga4Events": [
+          {
+            "name": "generate_lead",
+            "params": {
+              "method": "waitlist"
+            }
+          }
+        ]
+      }
+    }
   ]
 }
