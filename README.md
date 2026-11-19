@@ -24,6 +24,17 @@ For each page, in each browser, [Playwright](https://playwright.dev) opens the p
 | No unexpected third parties | A script added outside the approved list |
 | Klaviyo onsite script loads for the right account | Optional, for pages marked `"klaviyo": true` |
 
+It also walks through forms and other conversion points. For each one listed in the site's config, it carries out the steps a visitor would (fill in fields, tick a box, click submit) and asserts:
+
+| Check | Catches |
+| --- | --- |
+| Every step can be carried out | A field or button that was renamed, removed or hidden |
+| Submission is sent to the right endpoint | A form that silently stopped posting, or posts the wrong data |
+| Confirmation is shown | A success state that never appears |
+| GA4 receives exactly one conversion event | A conversion that works for visitors but is no longer measured, or is counted twice |
+
+**Nothing is really submitted.** The form's outgoing request is intercepted and answered with a fake success, and any other outgoing write during the flow is stopped. The monitor never creates a signup, lead or order. See [Checking forms and conversions](#checking-forms-and-conversions).
+
 ## Using it for your site
 
 A site is described by one JSON file:
@@ -53,6 +64,7 @@ A site is described by one JSON file:
 | `browsers` | Optional. Which [browser profiles](#browsers-and-devices) to check. Leave it out to check all five |
 | `allowedThirdPartyHosts` | Hosts a page may load from. The site itself and Google's tag hosts are always allowed |
 | `pages` | The pages to check, each with a display `name` and a `path` |
+| `conversions` | Optional. Forms and other conversion points to walk through. See [Checking forms and conversions](#checking-forms-and-conversions) |
 
 None of these values are secret: the IDs are already in the HTML of any page that uses them. A starting point is in [`examples/site.json`](examples/site.json).
 
@@ -69,6 +81,40 @@ None of these values are secret: the IDs are already in the HTML of any page tha
 Every check runs for every page in every profile listed, so each profile adds to the run time. A site that serves the same markup to all devices can list fewer. The profiles are defined in [`browser-profiles.json`](browser-profiles.json); add an entry there, using any of [Playwright's device names](https://github.com/microsoft/playwright/blob/main/packages/playwright-core/src/server/deviceDescriptorsSource.json), to check a tablet or another phone.
 
 The mobile profiles are emulation, not physical devices, and none of the profiles apply Safari's or Firefox's tracking protection or an ad blocker. The monitor tells you whether your tags are installed and firing correctly, not how much data real visitors' privacy settings remove.
+
+### Checking forms and conversions
+
+Each entry in `conversions` describes one flow:
+
+```json
+"conversions": [
+  {
+    "name": "Newsletter signup",
+    "path": "/",
+    "steps": [
+      { "action": "fill", "selector": "#email", "value": "tag-monitor@example.com" },
+      { "action": "check", "selector": "#consent" },
+      { "action": "click", "selector": "#signup button[type=submit]" }
+    ],
+    "intercept": [{ "url": "/api/subscribe", "status": 200 }],
+    "expect": {
+      "requests": [{ "url": "/api/subscribe", "method": "POST", "bodyContains": ["tag-monitor@example.com"] }],
+      "visible": "#thank-you",
+      "ga4Events": [{ "name": "generate_lead", "params": { "method": "newsletter" } }]
+    }
+  }
+]
+```
+
+| Setting | What it does |
+| --- | --- |
+| `steps` | What to do on the page, in order. Actions: `fill`, `type` (key by key), `select`, `check`, `click`. Each takes a CSS `selector` |
+| `intercept` | Requests to answer locally instead of sending. Matched when the request URL contains `url`. Set `status` and `body` to whatever the page treats as success |
+| `expect.requests` | Intercepted requests that must be sent exactly once, optionally with a `method` and text the body must contain |
+| `expect.visible` | CSS selector of the confirmation that must appear |
+| `expect.ga4Events` | GA4 events that must be sent exactly once to the expected property, optionally with parameter values |
+
+List the form's submit endpoint under `intercept`. If you leave it out, the monitor still stops the request, so nothing is submitted, but the page will see a failure instead of a success. Requests that read data (`GET`) are not stopped, so a conversion that is recorded by a `GET` request should be listed under `intercept` too.
 
 There are two ways to run it.
 
@@ -161,7 +207,7 @@ If the site takes time to deploy after a push, the checks may run against the pr
 
 ## Seeing it catch something
 
-The repo includes five small pages in [`fixtures/`](fixtures), four of them broken on purpose. Run the separate [**Demo: broken tags**](.github/workflows/demo-broken-tags.yml) workflow from the Actions tab and it fails, with a report showing what each mistake looks like:
+The repo includes seven small pages in [`fixtures/`](fixtures), five of them broken on purpose. Run the separate [**Demo: broken tags**](.github/workflows/demo-broken-tags.yml) workflow from the Actions tab and it fails, with a report showing what each mistake looks like:
 
 | Demo page | Mistake | Check that fails |
 | --- | --- | --- |
@@ -170,12 +216,14 @@ The repo includes five small pages in [`fixtures/`](fixtures), four of them brok
 | Wrong container ID | Snippet points at another container | Container, tag IDs, `page_view` |
 | Page view sent twice | GA4 installed through GTM and again by hand | Exactly one `page_view`, and sometimes the container check, depending on which install loads first |
 | Unapproved third-party script | Script from a host not on the allowlist | No unexpected third parties |
+| Signup form | None (control) | Nothing |
+| Signup form, conversion event removed | The form works, but the line that reports the conversion is gone | GA4 receives exactly one `generate_lead` |
 
 The demo is its own workflow with its own config, [`examples/demo.json`](examples/demo.json), so it never opens an issue and never affects the status badge above.
 
 ## Design notes
 
-- **Monitor runs don't pollute the analytics.** GA4 hits are intercepted, inspected and answered locally instead of being forwarded to Google, so the weekly runs never appear as traffic.
+- **Monitor runs don't pollute the analytics or the CRM.** GA4 hits are intercepted, inspected and answered locally instead of being forwarded to Google, and form submissions are intercepted the same way. The weekly runs never appear as traffic or as signups.
 - **It tests the deployed site, not the source.** The monitor only needs a URL, so it works the same for a site whose code you don't control.
 - **Site settings are data, not code.** Adding a site means adding a JSON file. The tests never change.
 - **One retry on the live site.** A single network blip shouldn't open an issue. A check has to fail twice in a row to count.
