@@ -43,7 +43,7 @@ The repo includes five small pages in [`fixtures/`](fixtures), four of them brok
 | Healthy page | None (control) | Nothing |
 | Tag removed | No GTM snippet | Container, `page_view`, `dataLayer` |
 | Wrong container ID | Snippet points at another container | Container, tag IDs, `page_view` |
-| Page view sent twice | GA4 installed through GTM and again by hand | Exactly one `page_view` |
+| Page view sent twice | GA4 installed through GTM and again by hand | Exactly one `page_view`, and sometimes the container check, depending on which install loads first |
 | Unapproved third-party script | Script from a host not on the allowlist | No unexpected third parties |
 
 Demo runs never open an issue.
