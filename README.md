@@ -6,7 +6,7 @@ A scheduled check that loads every page of a website in a real browser and verif
 
 Analytics tags usually fail silently. A template gets rebuilt and the snippet is dropped, a second install double counts page views, a container ID is pasted from the wrong site. Nothing errors, and the first sign is a report that looks wrong weeks later. This monitor turns those into a failing check on its next run.
 
-This copy is set up for [bananabagel.app](https://bananabagel.app). To use it on your own site, see [Pointing it at another site](#pointing-it-at-another-site).
+Nothing about a particular site is in the code. Each site is one JSON file, and this repository ships with one for [bananabagel.app](https://bananabagel.app) as a working example. To monitor your own, see [Using it for your site](#using-it-for-your-site).
 
 ## What it checks
 
@@ -22,13 +22,80 @@ For each page, [Playwright](https://playwright.dev) opens the page in headless C
 | `dataLayer` exists and GTM lifecycle events fire | A broken or overwritten `dataLayer` |
 | Tag scripts raise no errors | JavaScript errors inside tag code |
 | No unexpected third parties | A script added outside the approved list |
-| Klaviyo onsite script loads for the right account | Home page only: the waitlist form's script |
+| Klaviyo onsite script loads for the right account | Optional, for pages marked `"klaviyo": true` |
 
-The expected IDs, the page list and the third-party allowlist all live in [`monitor.config.ts`](monitor.config.ts).
+## Using it for your site
+
+A site is described by one JSON file:
+
+```json
+{
+  "baseURL": "https://www.example.com",
+  "expected": {
+    "gtmContainerId": "GTM-XXXXXXX",
+    "ga4MeasurementId": "G-XXXXXXXXXX"
+  },
+  "allowedThirdPartyHosts": ["fonts.googleapis.com", "fonts.gstatic.com"],
+  "pages": [
+    { "name": "Home", "path": "/" },
+    { "name": "Pricing", "path": "/pricing" }
+  ]
+}
+```
+
+| Setting | What it controls |
+| --- | --- |
+| `baseURL` | The site to check |
+| `expected.gtmContainerId` | The GTM container every page must load |
+| `expected.ga4MeasurementId` | The GA4 property every hit must go to |
+| `expected.klaviyoCompanyId` | Optional. The Klaviyo account, checked on pages with `"klaviyo": true` |
+| `allowedThirdPartyHosts` | Hosts a page may load from. The site itself and Google's tag hosts are always allowed |
+| `pages` | The pages to check, each with a display `name` and a `path` |
+
+None of these values are secret: the IDs are already in the HTML of any page that uses them. A starting point is in [`examples/site.json`](examples/site.json).
+
+There are two ways to run it.
+
+### Option 1: copy this repository
+
+1. Fork this repository.
+2. Delete [`sites/bananabagel.json`](sites/bananabagel.json) and add `sites/your-site.json`.
+
+Every file in `sites/` is checked as its own job, so one copy can monitor several sites.
+
+### Option 2: call it from your own repository
+
+Keep the config in your site's repository and call this one as a [reusable workflow](https://docs.github.com/en/actions/sharing-automations/reusing-workflows). Add the config file anywhere in your repository, then add `.github/workflows/tag-monitor.yml`:
+
+```yaml
+name: Tag monitor
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+jobs:
+  tags:
+    permissions:
+      contents: read
+      issues: write
+    uses: matthewmattson/tag-monitor/.github/workflows/monitor.yml@main
+    with:
+      config: tag-monitor.json
+```
+
+| Input | Default | What it does |
+| --- | --- | --- |
+| `config` | (required) | Path to the site config in your repository |
+| `open-issue` | `true` | Open an issue in your repository when checks fail |
+| `tool-ref` | `main` | Branch, tag or commit of tag-monitor to run |
+
+Issues are opened in your repository, and you pick up improvements to the checks without copying anything.
 
 ## How it runs
 
-The schedule and triggers are set in the `on:` block at the top of [`.github/workflows/tag-monitor.yml`](.github/workflows/tag-monitor.yml). As shipped, it runs **every Monday at 14:00 UTC** and on demand.
+The schedule and triggers are set in the `on:` block at the top of [`.github/workflows/tag-monitor.yml`](.github/workflows/tag-monitor.yml), or of your own workflow file if you call this one from another repository. As shipped, it runs **every Monday at 14:00 UTC** and on demand.
 
 ### On a schedule
 
@@ -67,17 +134,14 @@ If the site takes time to deploy after a push, the checks may run against the pr
 
 | Setting | Where | What it controls |
 | --- | --- | --- |
-| Site URL and page list | `targets.live` in [`monitor.config.ts`](monitor.config.ts) | Which pages are checked |
-| Expected tag IDs | `expected` in [`monitor.config.ts`](monitor.config.ts) | The GTM container, GA4 property and Klaviyo account every page must use |
-| Allowed third parties | `allowedThirdPartyHosts` in [`monitor.config.ts`](monitor.config.ts) | Hosts a page may load from without failing |
 | Retries | `retries` in [`playwright.config.ts`](playwright.config.ts) | How many times a failed check is retried before it counts |
-| Report retention | `retention-days` in the workflow | How long the HTML report is kept |
+| Report retention | `retention-days` in [`monitor.yml`](.github/workflows/monitor.yml) | How long the HTML report is kept |
 
 ### What a run produces
 
-- **A summary table** on the run page, one row per page.
+- **A summary table** on the run page for each site, one row per page.
 - **The full Playwright HTML report** as a downloadable artifact.
-- **A GitHub issue** when a check fails on the live site. A failure that persists adds a comment to the open issue instead of opening another, and the issue closes itself on the next passing run.
+- **A GitHub issue** per site when a check fails. A failure that persists adds a comment to the open issue instead of opening another, and the issue closes itself on the next passing run.
 
 ## Seeing it catch something
 
@@ -91,12 +155,13 @@ The repo includes five small pages in [`fixtures/`](fixtures), four of them brok
 | Page view sent twice | GA4 installed through GTM and again by hand | Exactly one `page_view`, and sometimes the container check, depending on which install loads first |
 | Unapproved third-party script | Script from a host not on the allowlist | No unexpected third parties |
 
-The demo is its own workflow, so it never opens an issue and never affects the status badge above.
+The demo is its own workflow with its own config, [`examples/demo.json`](examples/demo.json), so it never opens an issue and never affects the status badge above.
 
 ## Design notes
 
 - **Monitor runs don't pollute the analytics.** GA4 hits are intercepted, inspected and answered locally instead of being forwarded to Google, so the weekly runs never appear as traffic.
-- **It tests the deployed site, not the source.** The site lives in a separate repository. The monitor only needs its URL, which is also how it would work against a site you don't control the code for.
+- **It tests the deployed site, not the source.** The monitor only needs a URL, so it works the same for a site whose code you don't control.
+- **Site settings are data, not code.** Adding a site means adding a JSON file. The tests never change.
 - **One retry on the live site.** A single network blip shouldn't open an issue. A check has to fail twice in a row to count.
 - **Each page is loaded once.** One browser session per page captures everything, and the individual checks read from that capture. That keeps the report granular without loading every page nine times.
 
@@ -113,11 +178,7 @@ npx playwright install chromium
 ```
 
 ```bash
-npm run monitor
+SITE_CONFIG=sites/bananabagel.json npm run monitor
 ```
 
-`npm run monitor:demo` runs the broken demo pages, and `npm run report` opens the HTML report from the last run.
-
-## Pointing it at another site
-
-Edit [`monitor.config.ts`](monitor.config.ts): set the `live` target's `baseURL` and `pages`, replace the IDs in `expected`, and list the third-party hosts the site is allowed to load.
+`SITE_CONFIG` is the config to check. `npm run monitor:demo` runs the broken demo pages, and `npm run report` opens the HTML report from the last run.
