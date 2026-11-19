@@ -108,7 +108,10 @@
         "visible": "#thank-you",
         "ga4Events": [
           {
-            "name": "form_submit"
+            "name": "generate_lead",
+            "params": {
+              "method": "waitlist"
+            }
           }
         ]
       }
