@@ -1,7 +1,7 @@
 {
   "baseURL": "https://bananabagel.app",
   "expected": {
-    "gtmContainerId": "GTM-PJ4VGDKV",
+    "gtmContainerId": "GTM-TKSW6PBD",
     "ga4MeasurementId": "G-BXK45KNNB1",
     "klaviyoCompanyId": "UDhRu7"
   },
