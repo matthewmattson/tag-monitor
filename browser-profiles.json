@@ -1,0 +1,7 @@
+{
+  "desktop-chrome": { "label": "Desktop Chrome", "device": "Desktop Chrome", "engine": "chromium" },
+  "desktop-firefox": { "label": "Desktop Firefox", "device": "Desktop Firefox", "engine": "firefox" },
+  "desktop-safari": { "label": "Desktop Safari", "device": "Desktop Safari", "engine": "webkit" },
+  "mobile-chrome": { "label": "Mobile Chrome", "device": "Pixel 7", "engine": "chromium" },
+  "mobile-safari": { "label": "Mobile Safari", "device": "iPhone 15", "engine": "webkit" }
+}

@@ -5,6 +5,7 @@
     "ga4MeasurementId": "G-BXK45KNNB1",
     "klaviyoCompanyId": "UDhRu7"
   },
+  "browsers": ["desktop-chrome", "desktop-firefox", "desktop-safari", "mobile-chrome", "mobile-safari"],
   "allowedThirdPartyHosts": ["klaviyo.com", "fonts.googleapis.com", "fonts.gstatic.com"],
   "pages": [
     { "name": "Home", "path": "/", "klaviyo": true },

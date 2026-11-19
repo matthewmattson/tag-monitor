@@ -29,6 +29,11 @@ export type SiteConfig = {
    */
   allowedThirdPartyHosts?: string[];
   pages: PageSpec[];
+  /**
+   * Which browser profiles to check, by name from browser-profiles.json.
+   * Leave it out to check all of them.
+   */
+  browsers?: string[];
   /** Demo only: serve ./fixtures locally before the run. */
   serveFixtures?: boolean;
 };
@@ -59,6 +64,24 @@ const missing = [
 if (missing.length > 0) {
   throw new Error(`${configPath} is missing required settings: ${missing.join(', ')}`);
 }
+
+export type BrowserProfile = { label: string; device: string; engine: string };
+
+const allProfiles = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'browser-profiles.json'), 'utf8'),
+) as Record<string, BrowserProfile>;
+
+const browserNames = config.browsers?.length ? config.browsers : Object.keys(allProfiles);
+const unknown = browserNames.filter((name) => !allProfiles[name]);
+if (unknown.length > 0) {
+  throw new Error(
+    `${configPath} lists unknown browsers: ${unknown.join(', ')}. ` +
+      `Choose from: ${Object.keys(allProfiles).join(', ')}`,
+  );
+}
+
+/** The browser profiles this run will check, in the order they are listed. */
+export const browsers = browserNames.map((name) => ({ name, ...allProfiles[name] }));
 
 /** The config's file name without .json, used to label reports. */
 export const siteName = path.basename(resolvedPath, '.json');

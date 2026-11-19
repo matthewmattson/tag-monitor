@@ -4,6 +4,7 @@
     "gtmContainerId": "GTM-XXXXXXX",
     "ga4MeasurementId": "G-XXXXXXXXXX"
   },
+  "browsers": ["desktop-chrome", "desktop-firefox", "desktop-safari", "mobile-chrome", "mobile-safari"],
   "allowedThirdPartyHosts": ["fonts.googleapis.com", "fonts.gstatic.com"],
   "pages": [
     { "name": "Home", "path": "/" },

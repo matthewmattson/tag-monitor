@@ -65,9 +65,9 @@ jobs:
         working-directory: tool
         run: npm install --no-audit --no-fund
 
-      - name: Install Chromium
+      - name: Install the browsers this config uses
         working-directory: tool
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps $(node scripts/engines.mjs)
 
       - name: Check tags
         working-directory: tool

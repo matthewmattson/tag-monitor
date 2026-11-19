@@ -1,6 +1,7 @@
 {
   "baseURL": "http://localhost:4173",
   "serveFixtures": true,
+  "browsers": ["desktop-chrome", "mobile-safari"],
   "expected": {
     "gtmContainerId": "GTM-PJ4VGDKV",
     "ga4MeasurementId": "G-BXK45KNNB1"

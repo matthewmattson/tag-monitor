@@ -29,8 +29,16 @@ for (const spec of site.pages) {
   test.describe(spec.name, () => {
     let capture: Capture;
 
-    test.beforeAll(async ({ browser }) => {
-      capture = await capturePage(browser, new URL(spec.path, site.baseURL).href);
+    test.beforeAll(async ({ browser }, testInfo) => {
+      // Apply this project's device profile (viewport, user agent, touch).
+      const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = testInfo.project.use;
+      capture = await capturePage(browser, new URL(spec.path, site.baseURL).href, {
+        viewport,
+        userAgent,
+        deviceScaleFactor,
+        hasTouch,
+        ...(isMobile ? { isMobile } : {}),
+      });
     });
 
     test('page loads', () => {

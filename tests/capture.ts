@@ -1,4 +1,4 @@
-import type { Browser, Request } from '@playwright/test';
+import type { Browser, BrowserContextOptions, Request } from '@playwright/test';
 
 /** One event inside a GA4 /g/collect hit. */
 export type Ga4Event = {
@@ -65,8 +65,12 @@ function parseGa4Hit(request: Request): Ga4Event[] {
  * GA4 hits are recorded and then answered locally instead of being forwarded
  * to Google, so monitor runs never show up as traffic in the real reports.
  */
-export async function capturePage(browser: Browser, url: string): Promise<Capture> {
-  const context = await browser.newContext();
+export async function capturePage(
+  browser: Browser,
+  url: string,
+  contextOptions: BrowserContextOptions = {},
+): Promise<Capture> {
+  const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
 
   const requests: CapturedRequest[] = [];
