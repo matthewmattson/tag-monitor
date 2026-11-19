@@ -36,7 +36,7 @@ Each run produces:
 
 ## Seeing it catch something
 
-The repo includes five small pages in [`fixtures/`](fixtures), four of them broken on purpose. Run the workflow with the target set to `demo` and the run fails, with a report showing what each mistake looks like:
+The repo includes five small pages in [`fixtures/`](fixtures), four of them broken on purpose. Run the separate [**Demo: broken tags**](.github/workflows/demo-broken-tags.yml) workflow from the Actions tab and it fails, with a report showing what each mistake looks like:
 
 | Demo page | Mistake | Check that fails |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ The repo includes five small pages in [`fixtures/`](fixtures), four of them brok
 | Page view sent twice | GA4 installed through GTM and again by hand | Exactly one `page_view`, and sometimes the container check, depending on which install loads first |
 | Unapproved third-party script | Script from a host not on the allowlist | No unexpected third parties |
 
-Demo runs never open an issue.
+The demo is its own workflow, so it never opens an issue and never affects the status badge above.
 
 ## Design notes
 

@@ -10,14 +10,6 @@ on:
 
   # Adds a "Run workflow" button in the Actions tab for on-demand runs.
   workflow_dispatch:
-    inputs:
-      target:
-        description: "live = the real site. demo = deliberately broken pages (expected to fail)."
-        type: choice
-        options:
-          - live
-          - demo
-        default: live
 
 permissions:
   contents: read
@@ -32,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TARGET: ${{ inputs.target || 'live' }}
+      TARGET: live
       GH_TOKEN: ${{ github.token }}
       ISSUE_LABEL: tag-monitor
     steps:
@@ -59,10 +51,10 @@ jobs:
           path: playwright-report/
           retention-days: 30
 
-      # Failures on the live site open an issue, or add a comment to the one
+      # Failures open an issue, or add a comment to the one
       # already open, so a problem that persists doesn't create duplicates.
       - name: Open or update an issue
-        if: ${{ failure() && env.TARGET == 'live' }}
+        if: ${{ failure() }}
         run: |
           gh label create "$ISSUE_LABEL" --color B60205 \
             --description "Opened by the tag monitor" --force
@@ -79,9 +71,9 @@ jobs:
               --label "$ISSUE_LABEL" --body-file issue.md
           fi
 
-      # When the live site is healthy again, close the issue with a note.
+      # When the site is healthy again, close the issue with a note.
       - name: Close the issue once checks pass again
-        if: ${{ success() && env.TARGET == 'live' }}
+        if: ${{ success() }}
         run: |
           open_issue=$(gh issue list --label "$ISSUE_LABEL" --state open --json number --jq '.[0].number')
           if [ -n "$open_issue" ]; then

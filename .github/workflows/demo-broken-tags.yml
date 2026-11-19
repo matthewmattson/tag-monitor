@@ -1,0 +1,40 @@
+name: "Demo: broken tags"
+
+# Runs the monitor against the deliberately broken pages in ./fixtures.
+# This workflow is EXPECTED TO FAIL: the point is to show what the monitor
+# reports for each kind of tagging mistake. It never opens an issue.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET: demo
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Check tags on the broken demo pages
+        run: npx playwright test
+
+      - name: Upload full report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
