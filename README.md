@@ -2,9 +2,11 @@
 
 [![Tag monitor](https://github.com/matthewmattson/tag-monitor/actions/workflows/tag-monitor.yml/badge.svg)](https://github.com/matthewmattson/tag-monitor/actions/workflows/tag-monitor.yml)
 
-A scheduled check that loads every page of [bananabagel.app](https://bananabagel.app) in a real browser and verifies that its analytics tags fire correctly. If something breaks, it opens a GitHub issue that says which page and which check.
+A scheduled check that loads every page of a website in a real browser and verifies that its analytics tags fire correctly. If something breaks, it opens a GitHub issue that says which page and which check.
 
-Analytics tags usually fail silently. A template gets rebuilt and the snippet is dropped, a second install double counts page views, a container ID is pasted from the wrong site. Nothing errors, and the first sign is a report that looks wrong weeks later. This monitor turns those into a failing check within a week.
+Analytics tags usually fail silently. A template gets rebuilt and the snippet is dropped, a second install double counts page views, a container ID is pasted from the wrong site. Nothing errors, and the first sign is a report that looks wrong weeks later. This monitor turns those into a failing check on its next run.
+
+This copy is set up for [bananabagel.app](https://bananabagel.app). To use it on your own site, see [Pointing it at another site](#pointing-it-at-another-site).
 
 ## What it checks
 
@@ -26,9 +28,52 @@ The expected IDs, the page list and the third-party allowlist all live in [`moni
 
 ## How it runs
 
-[`.github/workflows/tag-monitor.yml`](.github/workflows/tag-monitor.yml) runs the checks **every Monday at 14:00 UTC** and on demand from the **Run workflow** button in the Actions tab. The cadence is one `cron` line at the top of that file.
+The schedule and triggers are set in the `on:` block at the top of [`.github/workflows/tag-monitor.yml`](.github/workflows/tag-monitor.yml). As shipped, it runs **every Monday at 14:00 UTC** and on demand.
 
-Each run produces:
+### On a schedule
+
+The cadence is the `cron` line. Times are in UTC.
+
+| Cadence | `cron` value |
+| --- | --- |
+| Weekly, Mondays at 14:00 (default) | `"0 14 * * 1"` |
+| Daily at 14:00 | `"0 14 * * *"` |
+| Hourly, on the hour | `"0 * * * *"` |
+| Weekdays at 14:00 | `"0 14 * * 1-5"` |
+| Monthly, on the 1st at 14:00 | `"0 14 1 * *"` |
+
+GitHub can start scheduled runs a few minutes late, and it pauses schedules in repositories with no activity for 60 days.
+
+### On every push
+
+Add a `push` trigger to run the checks whenever code lands on `main`. This is most useful when the monitor lives in the same repository as the site, so a deploy that breaks a tag is caught right away.
+
+```yaml
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+```
+
+If the site takes time to deploy after a push, the checks may run against the previous version. Trigger the workflow from your deploy step instead, or keep the schedule as a backstop.
+
+### On demand
+
+`workflow_dispatch` adds a **Run workflow** button in the Actions tab. Remove that line to turn it off.
+
+### Other settings
+
+| Setting | Where | What it controls |
+| --- | --- | --- |
+| Site URL and page list | `targets.live` in [`monitor.config.ts`](monitor.config.ts) | Which pages are checked |
+| Expected tag IDs | `expected` in [`monitor.config.ts`](monitor.config.ts) | The GTM container, GA4 property and Klaviyo account every page must use |
+| Allowed third parties | `allowedThirdPartyHosts` in [`monitor.config.ts`](monitor.config.ts) | Hosts a page may load from without failing |
+| Retries | `retries` in [`playwright.config.ts`](playwright.config.ts) | How many times a failed check is retried before it counts |
+| Report retention | `retention-days` in the workflow | How long the HTML report is kept |
+
+### What a run produces
 
 - **A summary table** on the run page, one row per page.
 - **The full Playwright HTML report** as a downloadable artifact.
