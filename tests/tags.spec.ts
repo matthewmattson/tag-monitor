@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { allowedThirdPartyHosts, expected, site } from '../site-config';
+import { oncePerRun } from './cache';
 import { capturePage, type Capture } from './capture';
 
 const siteHost = new URL(site.baseURL).hostname;
@@ -32,13 +33,15 @@ for (const spec of site.pages) {
     test.beforeAll(async ({ browser }, testInfo) => {
       // Apply this project's device profile (viewport, user agent, touch).
       const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = testInfo.project.use;
-      capture = await capturePage(browser, new URL(spec.path, site.baseURL).href, {
-        viewport,
-        userAgent,
-        deviceScaleFactor,
-        hasTouch,
-        ...(isMobile ? { isMobile } : {}),
-      });
+      capture = await oncePerRun(testInfo, `page-${spec.path}`, () =>
+        capturePage(browser, new URL(spec.path, site.baseURL).href, {
+          viewport,
+          userAgent,
+          deviceScaleFactor,
+          hasTouch,
+          ...(isMobile ? { isMobile } : {}),
+        }),
+      );
     });
 
     test('page loads', () => {

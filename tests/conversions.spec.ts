@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { expected, site } from '../site-config';
+import { oncePerRun } from './cache';
 import { runConversion, type FlowResult } from './flow';
 
 for (const conversion of site.conversions || []) {
@@ -8,13 +9,15 @@ for (const conversion of site.conversions || []) {
 
     test.beforeAll(async ({ browser }, testInfo) => {
       const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = testInfo.project.use;
-      result = await runConversion(browser, site.baseURL, conversion, {
-        viewport,
-        userAgent,
-        deviceScaleFactor,
-        hasTouch,
-        ...(isMobile ? { isMobile } : {}),
-      });
+      result = await oncePerRun(testInfo, `conversion-${conversion.name}`, () =>
+        runConversion(browser, site.baseURL, conversion, {
+          viewport,
+          userAgent,
+          deviceScaleFactor,
+          hasTouch,
+          ...(isMobile ? { isMobile } : {}),
+        }),
+      );
     });
 
     test('every step can be carried out', () => {

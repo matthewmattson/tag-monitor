@@ -57,7 +57,8 @@ jobs:
   monitor:
     needs: prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A healthy run takes under two minutes. Stop early if something hangs.
+    timeout-minutes: 10
     permissions:
       contents: read
     container:

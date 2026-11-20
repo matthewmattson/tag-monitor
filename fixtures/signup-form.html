@@ -14,7 +14,7 @@
 </head>
 <body>
   <h1>Signup form</h1>
-  <p>Control form: a successful signup reports a generate_lead event to GA4.</p>
+  <p>Control form: a successful signup pushes generate_lead to the dataLayer, and Tag Manager forwards it to GA4.</p>
 
   <form id="signup">
     <label>Name <input id="name" name="name" required /></label>
@@ -37,8 +37,9 @@
       if (!response.ok) return;
       this.hidden = true;
       document.getElementById('thanks').hidden = false;
-      // Report the conversion once the signup has succeeded.
-      gtag('event', 'generate_lead', { method: 'waitlist' });
+      // Report the conversion once the signup has succeeded. Tag Manager
+      // picks this up and forwards it to GA4.
+      window.dataLayer.push({ event: 'generate_lead', method: 'waitlist' });
     });
   </script>
 </body>
