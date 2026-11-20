@@ -114,6 +114,8 @@ Each entry in `conversions` describes one flow:
 | `expect.visible` | CSS selector of the confirmation that must appear |
 | `expect.ga4Events` | GA4 events that must be sent exactly once to the expected property, optionally with parameter values |
 
+The GA4 check looks at what reaches GA4, not at how the site sends it. An event sent by a direct `gtag()` call and one sent by a Tag Manager tag listening for a `dataLayer` push both pass, and a site that accidentally does both fails with two events.
+
 List the form's submit endpoint under `intercept`. If you leave it out, the monitor still stops the request, so nothing is submitted, but the page will see a failure instead of a success. Requests that read data (`GET`) are not stopped, so a conversion that is recorded by a `GET` request should be listed under `intercept` too.
 
 There are two ways to run it.
@@ -197,11 +199,23 @@ If the site takes time to deploy after a push, the checks may run against the pr
 | Setting | Where | What it controls |
 | --- | --- | --- |
 | Retries | `retries` in [`playwright.config.ts`](playwright.config.ts) | How many times a failed check is retried before it counts |
+| Parallelism | `workers` in [`playwright.config.ts`](playwright.config.ts) | How many browser profiles are checked at once. Three by default; four was measured to be no faster and puts more simultaneous connections on the site |
+| Time limit | `timeout-minutes` in [`monitor.yml`](.github/workflows/monitor.yml) | When a hung run is stopped. Ten minutes by default |
 | Report retention | `retention-days` in [`monitor.yml`](.github/workflows/monitor.yml) | How long the HTML report is kept |
 
 ### Where it runs
 
 The checks run inside Playwright's official Docker image, which already contains every browser and its system libraries. Nothing is installed per run, so a run takes about two minutes and doesn't depend on package mirrors. The image version follows the `@playwright/test` version pinned in [`package.json`](package.json).
+
+Each site is handled by three small jobs in [`monitor.yml`](.github/workflows/monitor.yml):
+
+| Job | What it does | Permissions |
+| --- | --- | --- |
+| `prepare` | Reads the pinned Playwright version and the site's name | Read the repository |
+| `monitor` | Loads the pages and runs the checks inside the Playwright image | Read the repository |
+| `issue` | Opens, updates or closes the GitHub issue from the result | Write issues |
+
+A healthy run spends about 25 seconds starting the image and 50 seconds on the checks. The rest is GitHub starting the jobs.
 
 ### What a run produces
 
@@ -223,7 +237,14 @@ The repo includes seven small pages in [`fixtures/`](fixtures), five of them bro
 | Signup form | None (control) | Nothing |
 | Signup form, conversion event removed | The form works, but the line that reports the conversion is gone | GA4 receives exactly one `generate_lead` |
 
-The demo is its own workflow with its own config, [`examples/demo.json`](examples/demo.json), so it never opens an issue and never affects the status badge above.
+The demo is its own workflow with its own config, [`examples/demo.json`](examples/demo.json), so it never opens an issue and never affects the status badge above. It checks two browser profiles, desktop Chrome and mobile Safari, and takes under a minute.
+
+## Found in practice
+
+Two problems the monitor has caught on real pages so far:
+
+- **A conversion nobody was measuring.** The first run of the form check on bananabagel.app showed the waitlist form working for visitors while sending no event to GA4. The monitor opened [issue #1](https://github.com/matthewmattson/tag-monitor/issues/1), a `generate_lead` event was added to the site, and the issue closed itself on the next passing run.
+- **A conversion counted twice.** After a GA4 event tag was added in Tag Manager, a page that still called `gtag('event', ...)` directly sent `generate_lead` twice. The check for exactly one event failed on it until the direct call was replaced with a `dataLayer` push.
 
 ## Design notes
 
@@ -231,6 +252,7 @@ The demo is its own workflow with its own config, [`examples/demo.json`](example
 - **It tests the deployed site, not the source.** The monitor only needs a URL, so it works the same for a site whose code you don't control.
 - **Site settings are data, not code.** Adding a site means adding a JSON file. The tests never change.
 - **One retry on the live site.** A single network blip shouldn't open an issue. A check has to fail twice in a row to count.
+- **Least privilege.** The job that loads web pages can only read the repository. Writing issues happens in a separate job that never opens a browser.
 - **Each page is loaded once per browser.** One session captures everything, and the individual checks read from that capture. That keeps the report granular without loading every page nine times. The capture is reused even when a check fails, so a run with failures takes no longer than a clean one.
 
 ## Running it locally
@@ -242,11 +264,26 @@ npm install
 ```
 
 ```bash
-npx playwright install chromium
+npx playwright install
 ```
 
 ```bash
 SITE_CONFIG=sites/bananabagel.json npm run monitor
 ```
 
+`npx playwright install` downloads all three browser engines. To download fewer, name them (for example `npx playwright install chromium`) and list only the matching profiles under `browsers` in the config.
+
 `SITE_CONFIG` is the config to check. `npm run monitor:demo` runs the broken demo pages, and `npm run report` opens the HTML report from the last run.
+
+## What's in the repository
+
+| Path | What it is |
+| --- | --- |
+| [`sites/`](sites) | One JSON file per site to monitor |
+| [`examples/`](examples) | A starter config, and the config for the demo |
+| [`fixtures/`](fixtures) | The demo pages, most of them broken on purpose |
+| [`tests/`](tests) | The checks: page-level in `tags.spec.ts`, form flows in `conversions.spec.ts` |
+| [`reporters/`](reporters) | Builds the summary table used on the run page and in issues |
+| [`browser-profiles.json`](browser-profiles.json) | The browser and device profiles a config can choose from |
+| [`site-config.ts`](site-config.ts) | Loads and validates the site config |
+| [`.github/workflows/`](.github/workflows) | The schedule, the reusable workflow, and the demo |
