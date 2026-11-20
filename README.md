@@ -199,6 +199,10 @@ If the site takes time to deploy after a push, the checks may run against the pr
 | Retries | `retries` in [`playwright.config.ts`](playwright.config.ts) | How many times a failed check is retried before it counts |
 | Report retention | `retention-days` in [`monitor.yml`](.github/workflows/monitor.yml) | How long the HTML report is kept |
 
+### Where it runs
+
+The checks run inside Playwright's official Docker image, which already contains every browser and its system libraries. Nothing is installed per run, so a run takes about two minutes and doesn't depend on package mirrors. The image version follows the `@playwright/test` version pinned in [`package.json`](package.json).
+
 ### What a run produces
 
 - **A summary table** on the run page for each site, one row per page and one column per browser.
@@ -227,7 +231,7 @@ The demo is its own workflow with its own config, [`examples/demo.json`](example
 - **It tests the deployed site, not the source.** The monitor only needs a URL, so it works the same for a site whose code you don't control.
 - **Site settings are data, not code.** Adding a site means adding a JSON file. The tests never change.
 - **One retry on the live site.** A single network blip shouldn't open an issue. A check has to fail twice in a row to count.
-- **Each page is loaded once per browser.** One session captures everything, and the individual checks read from that capture. That keeps the report granular without loading every page nine times.
+- **Each page is loaded once per browser.** One session captures everything, and the individual checks read from that capture. That keeps the report granular without loading every page nine times. The capture is reused even when a check fails, so a run with failures takes no longer than a clean one.
 
 ## Running it locally
 

@@ -9,8 +9,9 @@ export default defineConfig({
   // One retry against the live site so a network blip doesn't raise an alarm.
   retries: isDemo ? 0 : 1,
   // Each browser profile is its own project. Pages within a profile run in
-  // order; up to four run side by side, one per CPU core on a GitHub runner.
-  workers: 4,
+  // order; three run side by side. Four was measured to be no faster and
+  // puts more simultaneous connections on the site being checked.
+  workers: 3,
   projects: browsers.map((browser) => ({
     name: browser.label,
     use: { ...devices[browser.device] },
