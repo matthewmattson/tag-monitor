@@ -10,23 +10,32 @@ permissions:
   contents: read
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      playwright: ${{ steps.read.outputs.playwright }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: read
+        run: echo "playwright=$(jq -r '.devDependencies["@playwright/test"]' package.json)" >> "$GITHUB_OUTPUT"
+
   demo:
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Playwright's own image already contains the browsers and their system
+    # libraries, so nothing is installed per run.
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.prepare.outputs.playwright }}-noble
+      options: --user 1001
     env:
       SITE_CONFIG: examples/demo.json
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
-      - name: Install the browsers this config uses
-        run: npx playwright install --with-deps $(node scripts/engines.mjs)
 
       - name: Check tags on the broken demo pages
         run: npx playwright test

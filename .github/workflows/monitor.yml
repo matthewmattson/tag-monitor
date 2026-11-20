@@ -29,17 +29,40 @@ on:
         default: main
 
 jobs:
+  # Reads the Playwright version the tool is pinned to, so the checks can run
+  # in the matching official Playwright image.
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      playwright: ${{ steps.read.outputs.playwright }}
+      site: ${{ steps.read.outputs.site }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: matthewmattson/tag-monitor
+          ref: ${{ inputs.tool-ref }}
+      - id: read
+        env:
+          CONFIG_PATH: ${{ inputs.config }}
+        run: |
+          echo "playwright=$(jq -r '.devDependencies["@playwright/test"]' package.json)" >> "$GITHUB_OUTPUT"
+          echo "site=$(basename "$CONFIG_PATH" .json)" >> "$GITHUB_OUTPUT"
+
+  # Runs inside Playwright's own image, which already contains every browser
+  # and its system libraries. Nothing is downloaded or installed per run
+  # except the image itself, which avoids slow or stalled package mirrors.
   monitor:
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-      issues: write
-    env:
-      SITE_CONFIG: ${{ github.workspace }}/site/${{ inputs.config }}
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      ISSUE_LABEL: tag-monitor
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.prepare.outputs.playwright }}-noble
+      options: --user 1001
     steps:
       - name: Check out the repository that holds the site config
         uses: actions/checkout@v7
@@ -53,45 +76,63 @@ jobs:
           ref: ${{ inputs.tool-ref }}
           path: tool
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-
-      - name: Read the site name from the config file name
-        id: site
-        run: echo "name=$(basename "$SITE_CONFIG" .json)" >> "$GITHUB_OUTPUT"
-
       - name: Install dependencies
         working-directory: tool
         run: npm install --no-audit --no-fund
 
-      - name: Install the browsers this config uses
-        working-directory: tool
-        run: npx playwright install --with-deps $(node scripts/engines.mjs)
-
       - name: Check tags
         working-directory: tool
-        run: npx playwright test
+        env:
+          CONFIG_PATH: ${{ inputs.config }}
+        run: SITE_CONFIG="$GITHUB_WORKSPACE/site/$CONFIG_PATH" npx playwright test
 
       - name: Upload full report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-${{ steps.site.outputs.name }}
+          name: playwright-report-${{ needs.prepare.outputs.site }}
           path: tool/playwright-report/
           retention-days: 30
+
+      - name: Upload summary for the issue
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: monitor-summary-${{ needs.prepare.outputs.site }}
+          path: tool/monitor-report.md
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Opens, updates or closes the GitHub issue for this site. Kept separate so
+  # the job that loads third-party web pages has no permission to write issues.
+  issue:
+    needs: [prepare, monitor]
+    if: ${{ always() && inputs.open-issue && (needs.monitor.result == 'success' || needs.monitor.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE_LABEL: tag-monitor
+      ISSUE_TITLE: "Tag monitor: checks are failing on ${{ needs.prepare.outputs.site }}"
+    steps:
+      - name: Download the summary
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: monitor-summary-${{ needs.prepare.outputs.site }}
 
       # A failure opens an issue for this site, or adds a comment to the one
       # already open, so a problem that persists doesn't create duplicates.
       - name: Open or update an issue
-        if: ${{ failure() && inputs.open-issue }}
-        env:
-          ISSUE_TITLE: "Tag monitor: checks are failing on ${{ steps.site.outputs.name }}"
+        if: ${{ needs.monitor.result == 'failure' }}
         run: |
           gh label create "$ISSUE_LABEL" --color B60205 \
             --description "Opened by the tag monitor" --force
           {
-            cat tool/monitor-report.md 2>/dev/null || echo "The monitor failed before it could produce a report."
+            cat monitor-report.md 2>/dev/null || echo "The monitor failed before it could produce a report."
             echo
             echo "[Full run and downloadable report]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
           } > issue.md
@@ -105,9 +146,7 @@ jobs:
 
       # When the site is healthy again, close its issue with a note.
       - name: Close the issue once checks pass again
-        if: ${{ success() && inputs.open-issue }}
-        env:
-          ISSUE_TITLE: "Tag monitor: checks are failing on ${{ steps.site.outputs.name }}"
+        if: ${{ needs.monitor.result == 'success' }}
         run: |
           open_issue=$(gh issue list --label "$ISSUE_LABEL" --state open --json number,title \
             --jq "map(select(.title == \"$ISSUE_TITLE\")) | .[0].number // empty")
